@@ -5,6 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "dev": "tsx index.ts",
+    "start": "tsx index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,5 +14,8 @@
   "license": "ISC",
   "dependencies": {
     "tiktok-live-connector": "^2.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }
