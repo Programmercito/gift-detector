@@ -6,12 +6,12 @@ export class EventApiClient {
         private readonly fetchImpl: typeof fetch = fetch,
     ) {}
 
-    async sendText(sender: string, text: string): Promise<void> {
+    async sendText(sender: string, text: string, duration: number = COMMENT_DURATION_SECONDS): Promise<void> {
         await this.sendEvent({
             action: 'text',
             sender: sender.slice(0, 64),
             text,
-            duration: COMMENT_DURATION_SECONDS,
+            duration,
         });
     }
 

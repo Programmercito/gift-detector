@@ -11,21 +11,24 @@ function numberSetting(name: string): number {
     return parsed;
 }
 
-function booleanSetting(name: string): boolean {
-    const value = requiredSetting(name).toLowerCase();
-    if (value !== 'true' && value !== 'false') throw new Error(`${name} must be true or false`);
-    return value === 'true';
+function positiveNumberSetting(name: string): number {
+    const value = numberSetting(name);
+    if (value <= 0) throw new Error(`${name} must be greater than zero`);
+    return value;
 }
 
 export const DIAMONDS_PER_MESSAGE = numberSetting('DIAMONDS_PER_MESSAGE');
 export const TIKTOK_USERNAME = requiredSetting('TIKTOK_USERNAME');
-export const TIKTOK_ENABLE_EXTENDED_GIFT_INFO = booleanSetting('TIKTOK_ENABLE_EXTENDED_GIFT_INFO');
 export const EVENT_API_URL = requiredSetting('EVENT_API_URL');
 export const FOOD_API_URL = requiredSetting('FOOD_API_URL');
 export const FOOD_API_TIMEOUT_MS = numberSetting('FOOD_API_TIMEOUT_MS');
 export const SQLITE_DATABASE_PATH = requiredSetting('SQLITE_DATABASE_PATH');
 export const COMMENT_DURATION_SECONDS = numberSetting('COMMENT_DURATION_SECONDS');
+export const ADMIN_REMINDER_INTERVAL_MINUTES = positiveNumberSetting('ADMIN_REMINDER_INTERVAL_MINUTES');
+export const ADMIN_REMINDER_DURATION_SECONDS = positiveNumberSetting('ADMIN_REMINDER_DURATION_SECONDS');
+export const ADMIN_REMINDER_MESSAGE = requiredSetting('ADMIN_REMINDER_MESSAGE');
 export const DIAMONDS_PER_FOOD = numberSetting('DIAMONDS_PER_FOOD');
 export const MIN_FOOD_PER_GIFT = numberSetting('MIN_FOOD_PER_GIFT');
+export const EULER_API_KEY = process.env.API_KEY || undefined;
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || undefined;
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || undefined;

@@ -32,6 +32,23 @@ test('reports unsuccessful API responses', async () => {
     await assert.rejects(client.sendText('@ana', 'Hello'), /HTTP 503/);
 });
 
+test('allows an individual text event duration override', async () => {
+    let actualInit: RequestInit | undefined;
+    const client = new EventApiClient('http://localhost:8787/event', async (_input, init) => {
+        actualInit = init;
+        return new Response(null, { status: 200 });
+    });
+
+    await client.sendText('@admin', 'Reminder', 60);
+
+    assert.deepEqual(JSON.parse(String(actualInit?.body)), {
+        action: 'text',
+        sender: '@admin',
+        text: 'Reminder',
+        duration: 60,
+    });
+});
+
 test('posts a gift event for the 3D gift animation', async () => {
     let actualInit: RequestInit | undefined;
     const client = new EventApiClient('http://localhost:8787/event', async (_input, init) => {
