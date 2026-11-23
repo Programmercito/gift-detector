@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DiamondMessageForwarder } from './DiamondMessageForwarder';
-import { getReceivedDiamonds } from './giftDiamonds';
+import { getGiftCount, getGiftName, getReceivedDiamonds, isCompleteGiftEvent } from './giftDiamonds';
 
 test('counts the received diamond value for a normal gift', () => {
     assert.equal(getReceivedDiamonds({ giftDetails: { diamondCount: 10 } }), 10);
@@ -19,14 +19,13 @@ test('counts a completed streak by its cumulative repeat count', () => {
 });
 
 test('ignores intermediate updates for a streak', () => {
-    assert.equal(
-        getReceivedDiamonds({
-            gift: { diamondCount: 10, type: 1 },
-            repeatCount: 2,
-            repeatEnd: false,
-        }),
-        0,
-    );
+    const event = {
+        gift: { diamondCount: 10, type: 1 },
+        repeatCount: 2,
+        repeatEnd: false,
+    };
+    assert.equal(isCompleteGiftEvent(event), false);
+    assert.equal(getReceivedDiamonds(event), 0);
 });
 
 test('supports the connector gift_type and numeric repeatEnd fields', () => {
@@ -38,6 +37,19 @@ test('supports the connector gift_type and numeric repeatEnd fields', () => {
         }),
         10,
     );
+});
+
+test('extracts gift name and cumulative gift count for the visual event', () => {
+    const event = {
+        gift: { name: 'Rosa', type: 1 },
+        giftId: 5655,
+        repeatCount: 3,
+        repeatEnd: true,
+    };
+
+    assert.equal(getGiftName(event), 'Rosa');
+    assert.equal(getGiftCount(event), 3);
+    assert.equal(isCompleteGiftEvent(event), true);
 });
 
 test('turns a 20-diamond gift streak into credits for the next two chats', async () => {

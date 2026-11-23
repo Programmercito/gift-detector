@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 export const DIAMONDS_PER_MESSAGE = 10;
 
 // TikTok channel username to monitor (without the @).
-export const TIKTOK_USERNAME = 'programmercito';
+export const TIKTOK_USERNAME = 'friendooobo';
 
 // Change this if the event API runs on a different host or port.
 export const EVENT_API_URL = 'http://localhost:8787/event';

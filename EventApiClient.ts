@@ -7,17 +7,30 @@ export class EventApiClient {
     ) {}
 
     async sendText(sender: string, text: string): Promise<void> {
+        await this.sendEvent({
+            action: 'text',
+            sender: sender.slice(0, 64),
+            text,
+            duration: COMMENT_DURATION_SECONDS,
+        });
+    }
+
+    async sendGift(sender: string | undefined, gift: string, count: number): Promise<void> {
+        await this.sendEvent({
+            action: 'gift',
+            sender: sender?.slice(0, 64),
+            gift: gift.slice(0, 80),
+            count,
+            duration: COMMENT_DURATION_SECONDS,
+        });
+    }
+
+    private async sendEvent(event: Record<string, string | number | undefined>): Promise<void> {
         const response = await this.fetchImpl(this.url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'text',
-                sender: sender.slice(0, 64),
-                text,
-                duration: COMMENT_DURATION_SECONDS,
-            }),
+            body: JSON.stringify(event),
         });
-
         if (!response.ok) {
             throw new Error(`Event API returned HTTP ${response.status}`);
         }
