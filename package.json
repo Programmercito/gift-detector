@@ -9,9 +9,9 @@
   },
   "main": "index.js",
   "scripts": {
-    "dev": "tsx index.ts",
-    "start": "tsx index.ts",
-    "test": "tsx --test CreditStore.test.ts DiamondMessageForwarder.test.ts EventApiClient.test.ts giftDiamonds.test.ts TikTokConnection.test.ts"
+    "dev": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx index.ts",
+    "start": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx index.ts",
+    "test": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx --test CreditStore.test.ts DiamondMessageForwarder.test.ts EventApiClient.test.ts TelegramApiClient.test.ts giftDiamonds.test.ts TikTokConnection.test.ts"
   },
   "keywords": [],
   "author": "",

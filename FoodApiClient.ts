@@ -1,3 +1,5 @@
+import { FOOD_API_TIMEOUT_MS, FOOD_API_URL } from './config';
+
 /**
  * Cliente para interactuar con la API de comida
  */
@@ -5,7 +7,7 @@ export class FoodApiClient {
     private baseUrl: string;
     private timeout: number;
 
-    constructor(baseUrl: string = 'http://localhost:3000', timeout: number = 5000) {
+    constructor(baseUrl: string = FOOD_API_URL, timeout: number = FOOD_API_TIMEOUT_MS) {
         this.baseUrl = baseUrl;
         this.timeout = timeout;
     }
