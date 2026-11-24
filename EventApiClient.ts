@@ -1,7 +1,7 @@
 import { EVENT_API_URL } from './config';
 
 const DIAMOND_MESSAGE_DURATION_SECONDS = 60;
-const GIFT_DURATION_SECONDS = 10;
+export const GIFT_DURATION_SECONDS = 10;
 
 export class EventApiClient {
     constructor(

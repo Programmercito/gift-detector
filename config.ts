@@ -27,6 +27,9 @@ export const COMMENT_DURATION_SECONDS = numberSetting('COMMENT_DURATION_SECONDS'
 export const ADMIN_REMINDER_INTERVAL_MINUTES = positiveNumberSetting('ADMIN_REMINDER_INTERVAL_MINUTES');
 export const ADMIN_REMINDER_DURATION_SECONDS = positiveNumberSetting('ADMIN_REMINDER_DURATION_SECONDS');
 export const ADMIN_REMINDER_MESSAGE = requiredSetting('ADMIN_REMINDER_MESSAGE');
+export const SIMULATED_MESSAGES = Array.from({ length: 1000 }, (_, index) =>
+    process.env[`mensaje_${index + 1}`]?.trim(),
+).filter((message): message is string => Boolean(message));
 export const DIAMONDS_PER_FOOD = numberSetting('DIAMONDS_PER_FOOD');
 export const MIN_FOOD_PER_GIFT = numberSetting('MIN_FOOD_PER_GIFT');
 export const EULER_API_KEY = process.env.API_KEY || undefined;

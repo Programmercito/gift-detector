@@ -1,9 +1,10 @@
 import { FoodApiClient } from './FoodApiClient';
 import { DiamondMessageForwarder } from './DiamondMessageForwarder';
-import { EventApiClient } from './EventApiClient';
+import { EventApiClient, GIFT_DURATION_SECONDS } from './EventApiClient';
 import { EulerLiveEvent, EulerStreamConnection } from './EulerStreamConnection';
 import { TelegramApiClient } from './TelegramApiClient';
 import { PeriodicTextReminder } from './PeriodicTextReminder';
+import { SimulatedChatScheduler } from './SimulatedChatScheduler';
 import {
     ADMIN_REMINDER_DURATION_SECONDS,
     ADMIN_REMINDER_INTERVAL_MINUTES,
@@ -12,6 +13,7 @@ import {
     DIAMONDS_PER_MESSAGE,
     EULER_API_KEY,
     MIN_FOOD_PER_GIFT,
+    SIMULATED_MESSAGES,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     TIKTOK_USERNAME,
@@ -21,9 +23,13 @@ import { getGiftCount, getGiftName, getReceivedDiamonds, isCompleteGiftEvent } f
 const foodClient = new FoodApiClient();
 const eventApiClient = new EventApiClient();
 const telegramApiClient = new TelegramApiClient(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
+const simulatedChatScheduler = new SimulatedChatScheduler(
+    (sender, text, duration) => eventApiClient.sendText(sender, text, duration),
+    SIMULATED_MESSAGES,
+);
 const diamondMessageForwarder = new DiamondMessageForwarder(
     DIAMONDS_PER_MESSAGE,
-    (sender, text) => eventApiClient.sendText(sender, text),
+    (sender, text) => simulatedChatScheduler.sendRealMessage(sender, text),
 );
 const adminReminder = new PeriodicTextReminder(
     (sender, text, duration) => eventApiClient.sendText(sender, text, duration),
@@ -32,6 +38,7 @@ const adminReminder = new PeriodicTextReminder(
     ADMIN_REMINDER_DURATION_SECONDS,
 );
 adminReminder.start();
+simulatedChatScheduler.start();
 
 if (!telegramApiClient.isConfigured()) {
     console.warn('Telegram gift notifications are disabled; set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env.');
@@ -47,14 +54,13 @@ async function handleLiveEvent(event: EulerLiveEvent): Promise<void> {
         const uniqueId = data.user?.uniqueId ?? data.user?.displayId ?? 'TikTok';
         const sender = uniqueId.startsWith('@') ? uniqueId : `@${uniqueId}`;
 
-        try {
-            const sentMessages = await diamondMessageForwarder.handleChat(sender, text);
+        void diamondMessageForwarder.handleChat(sender, text).then(sentMessages => {
             if (sentMessages > 0) {
                 console.log(`Forwarded chat; ${diamondMessageForwarder.getPendingMessages()} message credit(s) remain.`);
             }
-        } catch (error) {
+        }).catch(error => {
             console.error('Failed to send chat to the event API:', error);
-        }
+        });
         return;
     }
 
@@ -71,10 +77,12 @@ async function handleLiveEvent(event: EulerLiveEvent): Promise<void> {
     diamondMessageForwarder.addDiamonds(diamantes);
 
     if (giftName) {
+        const resumeSimulation = simulatedChatScheduler.pauseForRealEvent(GIFT_DURATION_SECONDS);
         try {
             await eventApiClient.sendGift(sender, giftName, giftCount);
             console.log(`Sent gift animation: ${sender ?? 'TikTok'} sent ${giftName} x${giftCount}.`);
         } catch (error) {
+            resumeSimulation();
             console.error('Failed to send gift animation to the event API:', error);
         }
     }

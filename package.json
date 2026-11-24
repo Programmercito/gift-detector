@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx index.ts",
     "start": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx index.ts",
-    "test": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx --test CreditStore.test.ts DiamondMessageForwarder.test.ts EventApiClient.test.ts TelegramApiClient.test.ts PeriodicTextReminder.test.ts giftDiamonds.test.ts EulerStreamConnection.test.ts"
+    "test": "node --env-file-if-exists=.env.example --env-file-if-exists=.env --import=tsx --test CreditStore.test.ts DiamondMessageForwarder.test.ts EventApiClient.test.ts TelegramApiClient.test.ts PeriodicTextReminder.test.ts SimulatedChatScheduler.test.ts config.test.ts giftDiamonds.test.ts EulerStreamConnection.test.ts"
   },
   "keywords": [],
   "author": "",
