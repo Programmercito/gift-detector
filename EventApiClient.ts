@@ -1,4 +1,7 @@
-import { COMMENT_DURATION_SECONDS, EVENT_API_URL } from './config';
+import { EVENT_API_URL } from './config';
+
+const DIAMOND_MESSAGE_DURATION_SECONDS = 60;
+const GIFT_DURATION_SECONDS = 10;
 
 export class EventApiClient {
     constructor(
@@ -6,7 +9,7 @@ export class EventApiClient {
         private readonly fetchImpl: typeof fetch = fetch,
     ) {}
 
-    async sendText(sender: string, text: string, duration: number = COMMENT_DURATION_SECONDS): Promise<void> {
+    async sendText(sender: string, text: string, duration: number = DIAMOND_MESSAGE_DURATION_SECONDS): Promise<void> {
         await this.sendEvent({
             action: 'text',
             sender: sender.slice(0, 64),
@@ -21,7 +24,7 @@ export class EventApiClient {
             sender: sender?.slice(0, 64),
             gift: gift.slice(0, 80),
             count,
-            duration: COMMENT_DURATION_SECONDS,
+            duration: GIFT_DURATION_SECONDS,
         });
     }
 

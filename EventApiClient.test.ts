@@ -20,7 +20,7 @@ test('posts the text event to the API with the expected payload', async () => {
         action: 'text',
         sender: '@ana',
         text: 'Hello',
-        duration: 5,
+        duration: 60,
     });
 });
 
@@ -63,6 +63,6 @@ test('posts a gift event for the 3D gift animation', async () => {
         sender: '@ana',
         gift: 'Rosa',
         count: 3,
-        duration: 5,
+        duration: 10,
     });
 });
