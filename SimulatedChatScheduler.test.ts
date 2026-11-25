@@ -24,28 +24,29 @@ class ManualTimeouts {
 
 const flushPromises = () => new Promise<void>(resolve => setImmediate(resolve));
 
-test('sends a random simulated message each minute without repeating back-to-back', async () => {
+test('sends simulated messages every five seconds without repeating back-to-back', async () => {
     const timeouts = new ManualTimeouts();
     const sent: Array<[string, string, number]> = [];
     const scheduler = new SimulatedChatScheduler(
         async (sender, text, duration) => { sent.push([sender, text, duration]); },
         ['First simulated message', 'Second simulated message'],
-        60,
-        60_000,
+        ['@mateo_001', '@sofia_002'],
+        5,
+        5_000,
         () => 0,
         timeouts.schedule,
     );
 
     scheduler.start();
-    assert.equal(timeouts.runNext(), 60_000);
+    assert.equal(timeouts.runNext(), 5_000);
     await flushPromises();
-    assert.deepEqual(sent, [['@comunidad', 'First simulated message', 60]]);
+    assert.deepEqual(sent, [['@mateo_001', 'First simulated message', 5]]);
 
-    assert.equal(timeouts.runNext(), 60_000);
+    assert.equal(timeouts.runNext(), 5_000);
     await flushPromises();
     assert.deepEqual(sent, [
-        ['@comunidad', 'First simulated message', 60],
-        ['@comunidad', 'Second simulated message', 60],
+        ['@mateo_001', 'First simulated message', 5],
+        ['@sofia_002', 'Second simulated message', 5],
     ]);
     scheduler.stop();
 });
@@ -56,6 +57,7 @@ test('pauses simulation and displays credited real chats in queue order', async 
     const scheduler = new SimulatedChatScheduler(
         async (sender, text) => { sent.push([sender, text]); },
         ['Simulated message'],
+        ['@mateo_001'],
         60,
         60_000,
         () => 0,
@@ -71,12 +73,12 @@ test('pauses simulation and displays credited real chats in queue order', async 
     const firstReal = scheduler.sendRealMessage('@ana', 'Real message one').then(() => { firstRealFinished = true; });
     const secondReal = scheduler.sendRealMessage('@luis', 'Real message two').then(() => { secondRealFinished = true; });
     await flushPromises();
-    assert.deepEqual(sent, [['@comunidad', 'Simulated message']]);
+    assert.deepEqual(sent, [['@mateo_001', 'Simulated message']]);
 
     timeouts.runNext();
     await flushPromises();
     assert.deepEqual(sent, [
-        ['@comunidad', 'Simulated message'],
+        ['@mateo_001', 'Simulated message'],
         ['@ana', 'Real message one'],
     ]);
     assert.equal(firstRealFinished, false);
@@ -84,7 +86,7 @@ test('pauses simulation and displays credited real chats in queue order', async 
     timeouts.runNext();
     await flushPromises();
     assert.deepEqual(sent, [
-        ['@comunidad', 'Simulated message'],
+        ['@mateo_001', 'Simulated message'],
         ['@ana', 'Real message one'],
         ['@luis', 'Real message two'],
     ]);
@@ -95,7 +97,7 @@ test('pauses simulation and displays credited real chats in queue order', async 
     await Promise.all([firstReal, secondReal]);
     await flushPromises();
     assert.equal(secondRealFinished, true);
-    assert.deepEqual(sent.at(-1), ['@comunidad', 'Simulated message']);
+    assert.deepEqual(sent.at(-1), ['@mateo_001', 'Simulated message']);
     scheduler.stop();
 });
 
@@ -105,6 +107,7 @@ test('a real chat arriving before the first simulation gets priority', async () 
     const scheduler = new SimulatedChatScheduler(
         async (_sender, text) => { sent.push(text); },
         ['Simulated message'],
+        ['@simulado_001'],
         60,
         60_000,
         Math.random,
@@ -129,6 +132,7 @@ test('pauses the simulated sequence for the duration of a real gift event', asyn
     const scheduler = new SimulatedChatScheduler(
         async (_sender, text) => { sent.push(text); },
         ['Simulated message'],
+        ['@simulado_001'],
         60,
         60_000,
         Math.random,
@@ -151,6 +155,7 @@ test('still displays credited chats while a real gift pauses simulated messages'
     const scheduler = new SimulatedChatScheduler(
         async (_sender, text) => { sent.push(text); },
         ['Simulated message'],
+        ['@simulado_001'],
         60,
         60_000,
         Math.random,

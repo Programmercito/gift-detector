@@ -71,3 +71,19 @@ test('turns a 20-diamond gift streak into credits for the next two chats', async
         { sender: '@luis', text: 'Second chat' },
     ]);
 });
+
+test('one credit per diamond lets a two-diamond gift publish the next two chats', async () => {
+    const sent: string[] = [];
+    const forwarder = new DiamondMessageForwarder(1, async (_sender, text) => {
+        sent.push(text);
+    }, ':memory:');
+    const diamonds = getReceivedDiamonds({ giftDetails: { diamondCount: 2 } });
+
+    forwarder.addDiamonds(diamonds);
+
+    assert.equal(forwarder.getPendingMessages(), 2);
+    assert.equal(await forwarder.handleChat('@ana', 'First chat'), 1);
+    assert.equal(await forwarder.handleChat('@luis', 'Second chat'), 1);
+    assert.equal(await forwarder.handleChat('@sol', 'Third chat'), 0);
+    assert.deepEqual(sent, ['First chat', 'Second chat']);
+});

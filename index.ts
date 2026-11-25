@@ -1,4 +1,3 @@
-import { FoodApiClient } from './FoodApiClient';
 import { DiamondMessageForwarder } from './DiamondMessageForwarder';
 import { EventApiClient, GIFT_DURATION_SECONDS } from './EventApiClient';
 import { EulerLiveEvent, EulerStreamConnection } from './EulerStreamConnection';
@@ -9,23 +8,25 @@ import {
     ADMIN_REMINDER_DURATION_SECONDS,
     ADMIN_REMINDER_INTERVAL_MINUTES,
     ADMIN_REMINDER_MESSAGE,
-    DIAMONDS_PER_FOOD,
+    COMMENT_DURATION_SECONDS,
     DIAMONDS_PER_MESSAGE,
     EULER_API_KEY,
-    MIN_FOOD_PER_GIFT,
     SIMULATED_MESSAGES,
+    SIMULATED_SENDERS,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     TIKTOK_USERNAME,
 } from './config';
 import { getGiftCount, getGiftName, getReceivedDiamonds, isCompleteGiftEvent } from './giftDiamonds';
 
-const foodClient = new FoodApiClient();
 const eventApiClient = new EventApiClient();
 const telegramApiClient = new TelegramApiClient(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
 const simulatedChatScheduler = new SimulatedChatScheduler(
     (sender, text, duration) => eventApiClient.sendText(sender, text, duration),
     SIMULATED_MESSAGES,
+    SIMULATED_SENDERS,
+    COMMENT_DURATION_SECONDS,
+    COMMENT_DURATION_SECONDS * 1000,
 );
 const diamondMessageForwarder = new DiamondMessageForwarder(
     DIAMONDS_PER_MESSAGE,
@@ -93,10 +94,7 @@ async function handleLiveEvent(event: EulerLiveEvent): Promise<void> {
         console.error('Failed to send gift details to Telegram:', error);
     }
 
-    const comida = Math.max(MIN_FOOD_PER_GIFT, Math.floor(diamantes / DIAMONDS_PER_FOOD));
     console.log(`${uniqueId} (userId:${data?.user?.userId}) sends ${data?.giftId} '${giftName ?? data?.gift?.name}' with diamond value ${diamantes}`);
-    console.log(`Diamantes: ${diamantes} = COMIDA: ${comida}`);
-    await foodClient.addFood(comida);
 }
 
 const connection = new EulerStreamConnection(TIKTOK_USERNAME, EULER_API_KEY, handleLiveEvent);

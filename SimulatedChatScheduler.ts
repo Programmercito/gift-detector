@@ -26,6 +26,7 @@ export class SimulatedChatScheduler {
     constructor(
         private readonly sendText: ScheduledTextSender,
         private readonly simulatedMessages: string[],
+        private readonly simulatedSenders: string[] = [],
         private readonly durationSeconds = 60,
         private readonly intervalMs = 60_000,
         private readonly random: () => number = Math.random,
@@ -109,7 +110,7 @@ export class SimulatedChatScheduler {
         const text = this.simulatedMessages[index];
         if (text === undefined) return;
         this.lastMessageIndex = index;
-        this.display('@comunidad', text);
+        this.display(this.simulatedSenders[index] ?? '@comunidad', text);
     }
 
     private pickMessageIndex(): number {
