@@ -52,9 +52,6 @@ export class SimulatedChatScheduler {
     start(): void {
         if (this.started) return;
         this.started = true;
-        console.info(
-            `[scheduler] started: free=${this.freeMessagesEnabled}, interval=${this.intervalMs / 1000}s, duration=${this.durationSeconds}s, visible=${this.maxVisibleMessages}, low-priority-pending-cap=${this.maxPendingMessages}, real-queue=unbounded FIFO`,
-        );
         if (!this.freeMessagesEnabled) return;
         this.enqueueSimulatedMessage();
         this.scheduleNextSimulationTick();

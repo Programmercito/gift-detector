@@ -94,7 +94,7 @@ test('real messages take the next visible slots and pause simulated enqueues', a
         5_000,
         deterministicRandom(),
         timeouts.schedule,
-        2,
+        1,
         3,
     );
 

@@ -27,14 +27,6 @@ const eventApiClient = new EventApiClient();
 const telegramApiClient = new TelegramApiClient(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
 let warnedAboutMissingChatIdentity = false;
 
-function getEventTimestampMs(value: unknown): number | undefined {
-    const timestamp = Number(value);
-    if (!Number.isFinite(timestamp) || timestamp < 1_000_000_000) return undefined;
-    if (timestamp >= 1_000_000_000_000_000) return timestamp / 1000;
-    if (timestamp < 1_000_000_000_000) return timestamp * 1000;
-    return timestamp;
-}
-
 const simulatedChatScheduler = new SimulatedChatScheduler(
     (sender, text, duration) => eventApiClient.sendText(sender, text, duration),
     SIMULATED_MESSAGES,
@@ -50,12 +42,17 @@ const simulatedChatScheduler = new SimulatedChatScheduler(
 const diamondMessageForwarder = new DiamondMessageForwarder(
     DIAMONDS_PER_MESSAGE,
     (sender, text) => simulatedChatScheduler.sendRealMessage(sender, text),
+    undefined,
+    FREE_MESSAGES_ENABLED,
 );
 const adminReminder = new PeriodicTextReminder(
     (sender, text, duration) => simulatedChatScheduler.enqueueMessage(sender, text, duration),
     ADMIN_REMINDER_MESSAGE,
     ADMIN_REMINDER_INTERVAL_MINUTES,
     ADMIN_REMINDER_DURATION_SECONDS,
+);
+console.info(
+    `[scheduler] config: free=${FREE_MESSAGES_ENABLED}, interval=${SIMULATED_MESSAGE_INTERVAL_SECONDS}s, message-duration=${COMMENT_DURATION_SECONDS}s, visible-slots=${MAX_VISIBLE_MESSAGES}, pending-sim/admin=${MAX_PENDING_MESSAGES}, real-queue=FIFO/unbounded`,
 );
 adminReminder.start();
 simulatedChatScheduler.start();
@@ -75,13 +72,12 @@ async function handleLiveEvent(event: EulerLiveEvent): Promise<void> {
         const sender = uniqueId.startsWith('@') ? uniqueId : `@${uniqueId}`;
         const rawEventId = data.common?.msgId ?? data.msgId ?? data.messageId;
         const eventId = rawEventId === undefined || rawEventId === null ? undefined : String(rawEventId);
-        const eventTimestampMs = getEventTimestampMs(data.common?.createTime ?? data.createTime);
-        if (!eventId && eventTimestampMs === undefined && !warnedAboutMissingChatIdentity) {
+        if (!eventId && !warnedAboutMissingChatIdentity) {
             warnedAboutMissingChatIdentity = true;
-            console.warn('Chat events have no stable ID or timestamp; replay deduplication is unavailable.');
+            console.warn('Chat events have no stable ID; replay deduplication is unavailable.');
         }
 
-        void diamondMessageForwarder.handleChat(sender, text, eventId, eventTimestampMs).then(sentMessages => {
+        void diamondMessageForwarder.handleChat(sender, text, eventId).then(sentMessages => {
             if (sentMessages > 0) {
                 console.log(`Forwarded chat; ${diamondMessageForwarder.getPendingMessages()} message credit(s) remain.`);
             }
@@ -101,7 +97,10 @@ async function handleLiveEvent(event: EulerLiveEvent): Promise<void> {
     const uniqueId = data?.user?.uniqueId ?? data?.user?.displayId;
     const sender = uniqueId ? (uniqueId.startsWith('@') ? uniqueId : `@${uniqueId}`) : undefined;
     const giftCount = getGiftCount(data);
+    const pendingBefore = diamondMessageForwarder.getPendingMessages();
     diamondMessageForwarder.addDiamonds(diamantes);
+    const pendingAfter = diamondMessageForwarder.getPendingMessages();
+    console.info(`[credit] gift=${giftName ?? data?.giftId ?? 'unknown'} count=${giftCount} diamonds=${diamantes} added=${pendingAfter - pendingBefore} pending=${pendingAfter}`);
 
     if (giftName) {
         const resumeSimulation = simulatedChatScheduler.pauseForRealEvent(GIFT_DURATION_SECONDS);

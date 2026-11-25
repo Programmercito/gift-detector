@@ -184,17 +184,14 @@ test('ignores a replayed live chat event after restart', async () => {
     }
 });
 
-test('ignores stale chat replays without consuming a message credit', async () => {
-    const sent: string[] = [];
-    const forwarder = new DiamondMessageForwarder(1, async (_sender, text) => { sent.push(text); }, ':memory:');
-    forwarder.addDiamonds(1);
+test('forwards real chat without a credit when free messages are enabled', async () => {
+    const sent: Array<{ sender: string; text: string }> = [];
+    const forwarder = new DiamondMessageForwarder(1, async (sender, text) => {
+        sent.push({ sender, text });
+    }, ':memory:', true);
 
-    assert.equal(await forwarder.handleChat('@ana_0001', 'Old chat', 'old-event', Date.now() - 120_000), 0);
-    assert.equal(await forwarder.handleChat('@ana_0001', 'Old chat replay', 'old-event', Date.now()), 0);
-    assert.equal(forwarder.getPendingMessages(), 1);
-    assert.deepEqual(sent, []);
-
-    assert.equal(await forwarder.handleChat('@ana_0001', 'Fresh chat', 'fresh-event', Date.now()), 1);
-    assert.deepEqual(sent, ['Fresh chat']);
+    assert.equal(await forwarder.handleChat('@ana_0001', 'Hola a todos', 'free-chat-1'), 1);
+    assert.deepEqual(sent, [{ sender: '@ana_0001', text: 'Hola a todos' }]);
+    assert.deepEqual(forwarder.getCreditStatusCounts(), { pending: 0, sending: 0, used: 0 });
     forwarder.close();
 });
