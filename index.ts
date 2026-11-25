@@ -33,7 +33,7 @@ const diamondMessageForwarder = new DiamondMessageForwarder(
     (sender, text) => simulatedChatScheduler.sendRealMessage(sender, text),
 );
 const adminReminder = new PeriodicTextReminder(
-    (sender, text, duration) => eventApiClient.sendText(sender, text, duration),
+    (sender, text, duration) => simulatedChatScheduler.enqueueMessage(sender, text, duration),
     ADMIN_REMINDER_MESSAGE,
     ADMIN_REMINDER_INTERVAL_MINUTES,
     ADMIN_REMINDER_DURATION_SECONDS,

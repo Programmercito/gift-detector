@@ -10,12 +10,14 @@ const scheduleTimeout: ScheduleTimeout = (callback, delayMs) => {
 type QueuedMessage = {
     sender: string;
     text: string;
+    durationSeconds: number;
     resolve: () => void;
     reject: (error: unknown) => void;
 };
 
 export class SimulatedChatScheduler {
     private readonly realMessages: QueuedMessage[] = [];
+    private readonly scheduledMessages: QueuedMessage[] = [];
     private cancelWait: (() => void) | undefined;
     private started = false;
     private initialMessagePending = true;
@@ -47,8 +49,16 @@ export class SimulatedChatScheduler {
     }
 
     sendRealMessage(sender: string, text: string): Promise<void> {
+        return this.enqueue(this.realMessages, sender, text, this.durationSeconds);
+    }
+
+    enqueueMessage(sender: string, text: string, durationSeconds: number): Promise<void> {
+        return this.enqueue(this.scheduledMessages, sender, text, durationSeconds);
+    }
+
+    private enqueue(queue: QueuedMessage[], sender: string, text: string, durationSeconds: number): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.realMessages.push({ sender, text, resolve, reject });
+            queue.push({ sender, text, durationSeconds, resolve, reject });
             this.cancelWait?.();
             this.cancelWait = undefined;
             this.initialMessagePending = false;
@@ -86,6 +96,12 @@ export class SimulatedChatScheduler {
         }
 
         if (this.realEventPauses > 0) return;
+        const scheduledMessage = this.scheduledMessages.shift();
+        if (scheduledMessage) {
+            this.display(scheduledMessage.sender, scheduledMessage.text, scheduledMessage);
+            return;
+        }
+
         if (!this.started || this.simulatedMessages.length === 0) return;
         if (this.initialMessagePending) {
             this.initialMessagePending = false;
@@ -125,13 +141,14 @@ export class SimulatedChatScheduler {
     }
 
     private display(sender: string, text: string, queuedMessage?: QueuedMessage): void {
+        const durationSeconds = queuedMessage?.durationSeconds ?? this.durationSeconds;
         this.displaying = true;
-        void this.sendText(sender, text, this.durationSeconds).then(() => {
+        void this.sendText(sender, text, durationSeconds).then(() => {
             this.schedule(() => {
                 this.displaying = false;
                 queuedMessage?.resolve();
                 this.pump();
-            }, this.durationSeconds * 1000);
+            }, durationSeconds * 1000);
         }).catch(error => {
             this.displaying = false;
             queuedMessage?.reject(error);

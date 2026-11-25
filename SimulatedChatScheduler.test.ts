@@ -101,6 +101,51 @@ test('pauses simulation and displays credited real chats in queue order', async 
     scheduler.stop();
 });
 
+test('queues the admin reminder behind real chats and ahead of simulated messages', async () => {
+    const timeouts = new ManualTimeouts();
+    const sent: Array<[string, string, number]> = [];
+    const scheduler = new SimulatedChatScheduler(
+        async (sender, text, duration) => { sent.push([sender, text, duration]); },
+        ['Simulated message one', 'Simulated message two'],
+        ['@simulado_001', '@simulado_002'],
+        5,
+        5_000,
+        () => 0,
+        timeouts.schedule,
+    );
+
+    scheduler.start();
+    timeouts.runNext();
+    await flushPromises();
+
+    const adminReminder = scheduler.enqueueMessage('@admin', 'Admin reminder', 25);
+    const realChat = scheduler.sendRealMessage('@ana_0001', 'Real chat');
+    await flushPromises();
+    assert.deepEqual(sent, [['@simulado_001', 'Simulated message one', 5]]);
+
+    timeouts.runNext();
+    await flushPromises();
+    assert.deepEqual(sent, [
+        ['@simulado_001', 'Simulated message one', 5],
+        ['@ana_0001', 'Real chat', 5],
+    ]);
+
+    timeouts.runNext();
+    await realChat;
+    await flushPromises();
+    assert.deepEqual(sent, [
+        ['@simulado_001', 'Simulated message one', 5],
+        ['@ana_0001', 'Real chat', 5],
+        ['@admin', 'Admin reminder', 25],
+    ]);
+
+    timeouts.runNext();
+    await adminReminder;
+    await flushPromises();
+    assert.deepEqual(sent.at(-1), ['@simulado_002', 'Simulated message two', 5]);
+    scheduler.stop();
+});
+
 test('a real chat arriving before the first simulation gets priority', async () => {
     const timeouts = new ManualTimeouts();
     const sent: string[] = [];
