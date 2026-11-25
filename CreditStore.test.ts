@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { CreditStore } from './CreditStore';
 
-test('returns an in-flight credit to pending after a restart', () => {
+test('marks an interrupted send as used after restart to avoid replaying an old chat', () => {
     const directory = mkdtempSync(join(tmpdir(), 'gift-detector-recovery-'));
     const databasePath = join(directory, 'credits.sqlite');
     let store: CreditStore | undefined;
@@ -19,7 +19,7 @@ test('returns an in-flight credit to pending after a restart', () => {
         store = undefined;
 
         store = new CreditStore(databasePath);
-        assert.deepEqual(store.getCreditStatusCounts(), { pending: 1, sending: 0, used: 0 });
+        assert.deepEqual(store.getCreditStatusCounts(), { pending: 0, sending: 0, used: 1 });
     } finally {
         store?.close();
         rmSync(directory, { recursive: true, force: true });

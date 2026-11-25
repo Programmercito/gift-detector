@@ -2,6 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 type CreditStatus = 'pending' | 'sending' | 'used';
 
+const PROCESSED_CHAT_EVENT_LIMIT = 50_000;
+const PROCESSED_CHAT_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 export type CreditStatusCounts = Record<CreditStatus, number>;
 
 export class CreditStore {
@@ -29,9 +32,47 @@ export class CreditStore {
             CREATE INDEX IF NOT EXISTS message_credits_status_id
                 ON message_credits (status, id);
 
-            -- A process may have stopped while a request was in flight. Retry those credits.
-            UPDATE message_credits SET status = 'pending' WHERE status = 'sending';
+            CREATE TABLE IF NOT EXISTS processed_chat_events (
+                event_id TEXT PRIMARY KEY,
+                processed_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS processed_chat_events_time
+                ON processed_chat_events (processed_at DESC);
+
+            -- An interrupted send may already have reached the event API; do not replay it.
+            UPDATE message_credits
+                SET status = 'used', used_at = COALESCE(used_at, CURRENT_TIMESTAMP)
+                WHERE status = 'sending';
         `);
+    }
+
+    markChatEventProcessed(eventId: string): boolean {
+        if (!eventId.trim()) return false;
+
+        return this.inTransaction(() => {
+            const result = this.database
+                .prepare('INSERT OR IGNORE INTO processed_chat_events (event_id, processed_at) VALUES (?, ?)')
+                .run(eventId, Date.now());
+            if (Number(result.changes) !== 1) return false;
+
+            this.database
+                .prepare('DELETE FROM processed_chat_events WHERE processed_at < ?')
+                .run(Date.now() - PROCESSED_CHAT_EVENT_TTL_MS);
+            this.database.exec(`
+                DELETE FROM processed_chat_events
+                WHERE event_id IN (
+                    SELECT event_id FROM processed_chat_events
+                    ORDER BY processed_at DESC
+                    LIMIT -1 OFFSET ${PROCESSED_CHAT_EVENT_LIMIT}
+                )
+            `);
+            return true;
+        });
+    }
+
+    forgetChatEvent(eventId: string): void {
+        this.database.prepare('DELETE FROM processed_chat_events WHERE event_id = ?').run(eventId);
     }
 
     addDiamonds(diamonds: number, diamondsPerMessage: number): void {

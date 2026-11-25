@@ -19,6 +19,7 @@ type QueuedMessage = {
 };
 
 export class SimulatedChatScheduler {
+    private readonly realMessages: QueuedMessage[] = [];
     private readonly messageQueue: QueuedMessage[] = [];
     private cancelSimulationTick: (() => void) | undefined;
     private started = false;
@@ -26,6 +27,7 @@ export class SimulatedChatScheduler {
     private activeRealMessages = 0;
     private realEventPauses = 0;
     private lastMessageIndex = -1;
+    private lastQueueLogLength = 0;
 
     constructor(
         private readonly sendText: ScheduledTextSender,
@@ -37,6 +39,7 @@ export class SimulatedChatScheduler {
         private readonly schedule: ScheduleTimeout = scheduleTimeout,
         private readonly maxPendingMessages = 1,
         private readonly maxVisibleMessages = 3,
+        private readonly freeMessagesEnabled = true,
     ) {
         if (!Number.isInteger(maxPendingMessages) || maxPendingMessages < 1) {
             throw new Error('maxPendingMessages must be a positive integer');
@@ -49,6 +52,10 @@ export class SimulatedChatScheduler {
     start(): void {
         if (this.started) return;
         this.started = true;
+        console.info(
+            `[scheduler] started: free=${this.freeMessagesEnabled}, interval=${this.intervalMs / 1000}s, duration=${this.durationSeconds}s, visible=${this.maxVisibleMessages}, low-priority-pending-cap=${this.maxPendingMessages}, real-queue=unbounded FIFO`,
+        );
+        if (!this.freeMessagesEnabled) return;
         this.enqueueSimulatedMessage();
         this.scheduleNextSimulationTick();
     }
@@ -60,7 +67,19 @@ export class SimulatedChatScheduler {
     }
 
     sendRealMessage(sender: string, text: string): Promise<void> {
-        return this.enqueueWithPriority(sender, text, this.durationSeconds, 'real');
+        return new Promise((resolve, reject) => {
+            const message: QueuedMessage = {
+                sender,
+                text,
+                durationSeconds: this.durationSeconds,
+                priority: 'real',
+                resolve,
+                reject,
+            };
+            this.realMessages.push(message);
+            this.logQueueStatus('enqueued real', message);
+            this.pump();
+        });
     }
 
     enqueueMessage(sender: string, text: string, durationSeconds: number): Promise<void> {
@@ -76,18 +95,18 @@ export class SimulatedChatScheduler {
         return new Promise((resolve, reject) => {
             const message: QueuedMessage = { sender, text, durationSeconds, priority, resolve, reject };
             if (!this.insertMessage(message)) {
-                console.warn(`[scheduler] enqueue rejected: ${this.describeMessage(message)}; ${this.queueStatus()}`);
+                console.warn(`[queue] rejected: ${this.describeMessage(message)}; ${this.queueStatus()}`);
                 reject(new Error('Pending message queue is full'));
                 return;
             }
-            console.info(`[scheduler] enqueued: ${this.describeMessage(message)}; ${this.queueStatus()}`);
             this.pump();
+            this.logQueueStatus('enqueued', message);
         });
     }
 
     private insertMessage(message: QueuedMessage): boolean {
         if (this.messageQueue.length < this.maxPendingMessages) {
-            this.insertByPriority(message);
+            this.messageQueue.push(message);
             return true;
         }
 
@@ -98,24 +117,10 @@ export class SimulatedChatScheduler {
         if (replaceIndex === -1) return false;
 
         const [displaced] = this.messageQueue.splice(replaceIndex, 1);
-        console.warn(`[scheduler] displaced: ${this.describeMessage(displaced)}; ${this.queueStatus()}`);
+        this.logQueueStatus(`replaced ${this.describeMessage(displaced)} with`, message);
         displaced.reject?.(new Error('Pending message replaced by a higher-priority message'));
-        if (message.priority === 'real') this.insertByPriority(message);
-        else this.messageQueue.splice(replaceIndex, 0, message);
+        this.messageQueue.splice(replaceIndex, 0, message);
         return true;
-    }
-
-    private insertByPriority(message: QueuedMessage): void {
-        if (message.priority !== 'real') {
-            this.messageQueue.push(message);
-            return;
-        }
-
-        let insertAt = 0;
-        while (insertAt < this.messageQueue.length && this.messageQueue[insertAt].priority === 'real') {
-            insertAt += 1;
-        }
-        this.messageQueue.splice(insertAt, 0, message);
     }
 
     pauseForRealEvent(durationSeconds: number): () => void {
@@ -137,29 +142,31 @@ export class SimulatedChatScheduler {
 
     private pump(): void {
         while (this.activeMessages < this.maxVisibleMessages) {
-            let nextIndex = 0;
-            if (this.activeRealMessages > 0 || this.realEventPauses > 0) {
-                nextIndex = this.messageQueue.findIndex(message => message.priority === 'real');
-                if (nextIndex === -1) return;
+            const realMessage = this.realMessages.shift();
+            if (realMessage) {
+                this.display(realMessage);
+                continue;
             }
-            const nextMessage = this.messageQueue.splice(nextIndex, 1)[0];
+
+            if (this.activeRealMessages > 0 || this.realEventPauses > 0) return;
+            const nextMessage = this.messageQueue.shift();
             if (!nextMessage) return;
             this.display(nextMessage);
         }
     }
 
     private enqueueSimulatedMessage(): void {
-        if (!this.started || this.simulatedMessages.length === 0) return;
-        if (this.messageQueue.some(message => message.priority === 'real') || this.activeRealMessages > 0 || this.realEventPauses > 0) {
-            console.info(`[scheduler] simulated tick skipped: real priority or gift pause; ${this.queueStatus()}`);
+        if (!this.started || !this.freeMessagesEnabled || this.simulatedMessages.length === 0) return;
+        if (this.realMessages.length > 0 || this.activeRealMessages > 0 || this.realEventPauses > 0) {
+            this.logQueueStatus('simulated tick skipped: real priority or gift pause');
             return;
         }
         if (this.messageQueue.length >= this.maxPendingMessages) {
-            console.info(`[scheduler] simulated tick skipped: pending queue full; ${this.queueStatus()}`);
+            this.logQueueStatus('simulated tick skipped: pending queue full');
             return;
         }
         if (this.activeMessages + this.messageQueue.length >= this.maxVisibleMessages) {
-            console.info(`[scheduler] simulated tick skipped: all visible slots occupied; ${this.queueStatus()}`);
+            this.logQueueStatus('simulated tick skipped: all visible slots occupied');
             return;
         }
         const index = this.pickMessageIndex();
@@ -172,13 +179,13 @@ export class SimulatedChatScheduler {
             durationSeconds: this.durationSeconds,
             priority: 'simulated',
         };
-        this.insertMessage(message);
-        console.info(`[scheduler] enqueued simulated #${index + 1}: ${this.describeMessage(message)}; ${this.queueStatus()}`);
+        if (!this.insertMessage(message)) return;
         this.pump();
+        this.logQueueStatus(`enqueued simulated #${index + 1}`, message);
     }
 
     private scheduleNextSimulationTick(): void {
-        if (!this.started) return;
+        if (!this.started || !this.freeMessagesEnabled) return;
         this.cancelSimulationTick = this.schedule(() => {
             this.cancelSimulationTick = undefined;
             if (!this.started) return;
@@ -202,20 +209,20 @@ export class SimulatedChatScheduler {
         const { sender, text, durationSeconds } = queuedMessage;
         this.activeMessages += 1;
         if (queuedMessage.priority === 'real') this.activeRealMessages += 1;
-        console.info(`[scheduler] display started: ${this.describeMessage(queuedMessage)}; ${this.queueStatus()}`);
         void this.sendText(sender, text, durationSeconds).then(() => {
+            queuedMessage.resolve?.();
+            this.logQueueStatus('accepted by Event API', queuedMessage);
             this.schedule(() => {
                 this.activeMessages -= 1;
                 if (queuedMessage.priority === 'real') this.activeRealMessages -= 1;
-                queuedMessage.resolve?.();
-                console.info(`[scheduler] display finished: ${this.describeMessage(queuedMessage)}; ${this.queueStatus()}`);
+                this.logQueueStatus('display finished', queuedMessage);
                 this.pump();
             }, durationSeconds * 1000);
         }).catch(error => {
             this.activeMessages -= 1;
             if (queuedMessage.priority === 'real') this.activeRealMessages -= 1;
             queuedMessage.reject?.(error);
-            console.error(`[scheduler] display failed: ${this.describeMessage(queuedMessage)}; error=${String(error)}; ${this.queueStatus()}`);
+            console.error(`[queue] display failed: ${this.describeMessage(queuedMessage)}; error=${String(error)}; ${this.queueStatus()}`);
             this.pump();
         });
     }
@@ -226,9 +233,18 @@ export class SimulatedChatScheduler {
     }
 
     private queueStatus(): string {
-        const real = this.messageQueue.filter(message => message.priority === 'real').length;
+        const real = this.realMessages.length;
         const admin = this.messageQueue.filter(message => message.priority === 'scheduled').length;
         const simulated = this.messageQueue.filter(message => message.priority === 'simulated').length;
-        return `pending=${this.messageQueue.length}/${this.maxPendingMessages} (real=${real}, admin=${admin}, simulated=${simulated}), visible=${this.activeMessages}/${this.maxVisibleMessages}, active-real=${this.activeRealMessages}, gift-pauses=${this.realEventPauses}`;
+        return `real-queue=${real}, pending=${this.messageQueue.length}/${this.maxPendingMessages} (admin=${admin}, simulated=${simulated}), visible=${this.activeMessages}/${this.maxVisibleMessages}, active-real=${this.activeRealMessages}, gift-pauses=${this.realEventPauses}`;
+    }
+
+    private logQueueStatus(event: string, message?: QueuedMessage): void {
+        const description = message ? `: ${this.describeMessage(message)}` : '';
+        const line = `[queue] ${event}${description}; ${this.queueStatus()}`;
+        if (!process.stdout.isTTY) return;
+
+        process.stdout.write(`\r${line.padEnd(this.lastQueueLogLength)}\u001b[K`);
+        this.lastQueueLogLength = Math.max(this.lastQueueLogLength, line.length);
     }
 }

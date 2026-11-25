@@ -17,6 +17,13 @@ function positiveNumberSetting(name: string): number {
     return value;
 }
 
+function booleanSetting(name: string): boolean {
+    const value = requiredSetting(name).toLowerCase();
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    throw new Error(`${name} must be true or false`);
+}
+
 export const DIAMONDS_PER_MESSAGE = numberSetting('DIAMONDS_PER_MESSAGE');
 export const TIKTOK_USERNAME = requiredSetting('TIKTOK_USERNAME');
 export const EVENT_API_URL = requiredSetting('EVENT_API_URL');
@@ -25,6 +32,7 @@ export const COMMENT_DURATION_SECONDS = numberSetting('COMMENT_DURATION_SECONDS'
 export const SIMULATED_MESSAGE_INTERVAL_SECONDS = positiveNumberSetting('SIMULATED_MESSAGE_INTERVAL_SECONDS');
 export const MAX_PENDING_MESSAGES = positiveNumberSetting('MAX_PENDING_MESSAGES');
 export const MAX_VISIBLE_MESSAGES = positiveNumberSetting('MAX_VISIBLE_MESSAGES');
+export const FREE_MESSAGES_ENABLED = booleanSetting('FREE_MESSAGES_ENABLED');
 export const ADMIN_REMINDER_INTERVAL_MINUTES = positiveNumberSetting('ADMIN_REMINDER_INTERVAL_MINUTES');
 export const ADMIN_REMINDER_DURATION_SECONDS = positiveNumberSetting('ADMIN_REMINDER_DURATION_SECONDS');
 export const ADMIN_REMINDER_MESSAGE = requiredSetting('ADMIN_REMINDER_MESSAGE');

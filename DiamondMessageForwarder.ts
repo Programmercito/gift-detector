@@ -1,6 +1,8 @@
 import { CreditStore } from './CreditStore';
 import { SQLITE_DATABASE_PATH } from './config';
 
+const MAX_CHAT_EVENT_AGE_MS = 60_000;
+
 export type SendText = (sender: string, text: string) => Promise<void>;
 
 export class DiamondMessageForwarder {
@@ -33,7 +35,16 @@ export class DiamondMessageForwarder {
         return this.creditStore.getCreditStatusCounts();
     }
 
-    async handleChat(sender: string, text: string): Promise<number> {
+    async handleChat(sender: string, text: string, eventId?: string, eventTimestampMs?: number): Promise<number> {
+        if (eventId && !this.creditStore.markChatEventProcessed(eventId)) {
+            console.info(`[chat] ignored duplicate event ${eventId}`);
+            return 0;
+        }
+        if (eventTimestampMs !== undefined && Date.now() - eventTimestampMs > MAX_CHAT_EVENT_AGE_MS) {
+            console.info(`[chat] ignored stale event${eventId ? ` ${eventId}` : ''}`);
+            return 0;
+        }
+
         const creditId = this.creditStore.claimNextCredit();
         if (creditId === null) return 0;
 
@@ -41,6 +52,7 @@ export class DiamondMessageForwarder {
             await this.sendText(sender.slice(0, 64), text);
         } catch (error) {
             this.creditStore.releaseCredit(creditId);
+            if (eventId) this.creditStore.forgetChatEvent(eventId);
             throw error;
         }
 

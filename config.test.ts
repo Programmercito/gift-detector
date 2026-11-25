@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SIMULATED_MESSAGES, SIMULATED_SENDERS } from './config';
+import { FREE_MESSAGES_ENABLED, SIMULATED_MESSAGES, SIMULATED_SENDERS } from './config';
 
 const maleHandles = ['luis', 'mateo', 'diego', 'tomas', 'nicolas', 'santiago', 'benjamin', 'thiago', 'joaquin', 'felipe', 'bruno', 'franco', 'gael', 'lautaro', 'simon', 'pablo', 'gabriel', 'andres', 'david', 'adrian'];
 const femaleHandles = ['sofia', 'camila', 'valentina', 'martina', 'emilia', 'isabella', 'mia', 'catalina', 'olivia', 'ana', 'renata', 'julieta', 'abril', 'zoe', 'lucia', 'daniela', 'carolina', 'elena', 'paula', 'natalia'];
@@ -15,6 +15,7 @@ const normalize = (value: string) => value.normalize('NFD').replace(/\p{Diacriti
 const wordsIn = (value: string) => new Set(normalize(value).split(/[^\p{L}\p{N}]+/u));
 
 test('loads varied simulated messages with separate sender identities', () => {
+    assert.equal(FREE_MESSAGES_ENABLED, true);
     assert.equal(SIMULATED_MESSAGES.length, 1000);
     assert.equal(SIMULATED_SENDERS.length, 1000);
     assert.equal(new Set(SIMULATED_MESSAGES).size, 1000);
